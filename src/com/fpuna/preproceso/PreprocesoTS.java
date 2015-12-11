@@ -5,6 +5,7 @@
  */
 package com.fpuna.preproceso;
 
+import com.fpuna.preproceso.entities.TrainingSetFeature;
 import com.fpuna.preproceso.util.AutoRegression;
 import com.fpuna.preproceso.util.Util;
 import java.io.BufferedReader;
@@ -14,9 +15,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.persistence.EntityManager;
+import javax.persistence.Persistence;
 import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.apache.commons.math3.transform.DftNormalization;
@@ -132,7 +138,8 @@ public class PreprocesoTS {
         Registro muestras[] = new Registro[cantMuestras];
         int cantR, cantTomados;
         int i;
-
+        List<TrainingSetFeature> featureList = new ArrayList<TrainingSetFeature>();
+        
         //Extraer la cantidad de muestras del sensor
         for (SessionTS session : sessiones.values()) {
 
@@ -149,7 +156,7 @@ public class PreprocesoTS {
 
                     if (cantTomados == cantMuestras) {
                         //calculoFeatures(muestras, session.getActividad());
-                        calculoFeaturesMagnitud(muestras, session.getActividad());
+                        featureList.add(calculoFeaturesMagnitud(muestras, session.getActividad()));
                         cantTomados = 0;
                     }
                 }
@@ -158,7 +165,8 @@ public class PreprocesoTS {
 
         }
 
-        //Calcular los features
+        //Guarda los feature
+        GuardarFeature(featureList);
     }
 
     private static void calculoFeatures(Registro[] muestras, String activity) {
@@ -304,8 +312,9 @@ public class PreprocesoTS {
         System.out.print("\n");
     }
 
-    private static void calculoFeaturesMagnitud(Registro[] muestras, String activity) {
+    private static TrainingSetFeature calculoFeaturesMagnitud(Registro[] muestras, String activity) {
 
+        TrainingSetFeature Feature = new TrainingSetFeature();
         DescriptiveStatistics stats_m = new DescriptiveStatistics();
         
         double[] fft_m;
@@ -324,24 +333,42 @@ public class PreprocesoTS {
         //******************* Eje X *******************//
         //mean(s) - Arithmetic mean
         System.out.print(stats_m.getMean() + ",");
+        Feature.setMeanX((float) stats_m.getMean());
+        
         //std(s) - Standard deviation
         System.out.print(stats_m.getStandardDeviation() + ",");
+        Feature.setStdX((float) stats_m.getStandardDeviation());
+        
         //mad(s) - Median absolute deviation
         //
         //max(s) - Largest values in array
         System.out.print(stats_m.getMax() + ",");
+        Feature.setMaxX((float) stats_m.getMax());
+        
         //min(s) - Smallest value in array
         System.out.print(stats_m.getMin() + ",");
+        Feature.setMinX((float) stats_m.getMin());
+        
         //skewness(s) - Frequency signal Skewness
         System.out.print(stats_m.getSkewness() + ",");
+        Feature.setSkewnessX((float) stats_m.getSkewness());
+        
         //kurtosis(s) - Frequency signal Kurtosis
         System.out.print(stats_m.getKurtosis() + ",");
+        Feature.setKurtosisX((float) stats_m.getKurtosis());
+        
         //energy(s) - Average sum of the squares
         System.out.print(stats_m.getSumsq() / stats_m.getN() + ",");
+        Feature.setEnergyX((float) (stats_m.getSumsq() / stats_m.getN()));
+        
         //entropy(s) - Signal Entropy
         System.out.print(Util.calculateShannonEntropy(fft_m) + ",");
+        Feature.setEntropyX(Util.calculateShannonEntropy(fft_m).floatValue());
+        
         //iqr (s) Interquartile range
         System.out.print(stats_m.getPercentile(75) - stats_m.getPercentile(25) + ",");
+        Feature.setIqrX((float) (stats_m.getPercentile(75) - stats_m.getPercentile(25)));
+        
         try {
             //autoregression (s) -4th order Burg Autoregression coefficients
             AR_4 = AutoRegression.calculateARCoefficients(stats_m.getValues(), 4, true);
@@ -349,16 +376,42 @@ public class PreprocesoTS {
             System.out.print(AR_4[1] + ",");
             System.out.print(AR_4[2] + ",");
             System.out.print(AR_4[3] + ",");
+            Feature.setArX1((float) AR_4[0]);
+            Feature.setArX2((float) AR_4[1]);
+            Feature.setArX3((float) AR_4[2]);
+            Feature.setArX4((float) AR_4[3]);            
         } catch (Exception ex) {
             Logger.getLogger(PreprocesoTS.class.getName()).log(Level.SEVERE, null, ex);
         }
         //meanFreq(s) - Frequency signal weighted average
         System.out.print(Util.meanFreq(fft_m, stats_m.getValues()) + ",");
+        Feature.setMeanFreqx((float) Util.meanFreq(fft_m, stats_m.getValues()));
 
 
         //******************* Actividad *******************/
         System.out.print(activity);
         System.out.print("\n");
+        Feature.setEtiqueta(activity);
+        
+        return Feature;
+    }
+    
+    /**
+     * 
+     * @param trainingSetFeatureList
+     */
+    public static void GuardarFeature(List<TrainingSetFeature> trainingSetFeatureList){
+        EntityManager entityManager = Persistence.createEntityManagerFactory("PreprocesoTSPU").createEntityManager();
+        
+        entityManager.getTransaction().begin();
+        
+        Iterator<TrainingSetFeature> Iterator = trainingSetFeatureList.iterator();
+        while (Iterator.hasNext()) {
+            entityManager.persist(Iterator.next());
+        }
+     
+        entityManager.getTransaction().commit();
+        entityManager.close();
     }
     
 }
