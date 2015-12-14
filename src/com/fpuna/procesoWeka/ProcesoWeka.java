@@ -6,18 +6,11 @@
 package com.fpuna.procesoWeka;
 
 import java.awt.BorderLayout;
-import java.io.BufferedReader;
 import java.io.BufferedWriter;
-import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import weka.classifiers.Evaluation;
@@ -26,7 +19,6 @@ import weka.core.Debug;
  
 import weka.core.Instances;
 import static weka.core.SerializationHelper.write;
-import weka.core.converters.CSVLoader;
 import weka.experiment.InstanceQuery;
 import weka.gui.treevisualizer.PlaceNode2;
 import weka.gui.treevisualizer.TreeVisualizer;

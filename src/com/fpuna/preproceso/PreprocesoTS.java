@@ -14,6 +14,11 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -25,9 +30,6 @@ import javax.persistence.EntityManager;
 import javax.persistence.Persistence;
 import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
-import org.apache.commons.math3.transform.DftNormalization;
-import org.apache.commons.math3.transform.FastFourierTransformer;
-import org.apache.commons.math3.util.FastMath;
 
 /**
  *
@@ -43,15 +45,17 @@ public class PreprocesoTS {
         String data = "C:\\Users\\Santirrium\\Documents\\PreprocesoTS\\src\\com\\fpuna\\preproceso\\data\\data4";
         HashMap<String, SessionTS> sessiones = new HashMap<String, SessionTS>();
 
-        System.out.println("***** Feature *****");
-        System.out.print("mean_x, std_x, max_x, min_x, skewness_x, kurtosis_x, energy_x, entropy_x, iqr_x, ar_x_1, ar_x_2, ar_x_3, ar_x_4, meanFreq_x, ");
+        //System.out.println("***** Feature *****");
+        //System.out.print("mean_x, std_x, max_x, min_x, skewness_x, kurtosis_x, energy_x, entropy_x, iqr_x, ar_x_1, ar_x_2, ar_x_3, ar_x_4, meanFreq_x, ");
         //System.out.print("mean_y, std_y, max_y, min_y, skewness_y, kurtosis_y, energy_y, entropy_y, iqr_y, ar_y_1, ar_y_2, ar_y_3, ar_y_4, meanFreq_y, ");
         //System.out.print("mean_z, std_z, max_z, min_z, skewness_z, kurtosis_z, energy_z, entropy_z, iqr_z, ar_z_1, ar_z_2, ar_z_3, ar_z_4, meanFreq_z, ");
         //System.out.print("sma_xyz, correlation_xy, correlation_zy, correlation_yz, ");
-        System.out.print("activity");
-        System.out.print("\n");
+        //System.out.print("activity");
+        //System.out.print("\n");
+        
         //Leo el archivo
-        sessiones = leerArchivo(data, "LIS3DH Accelerometer");
+        //sessiones = leerArchivo(data, "LIS3DH Accelerometer");
+        sessiones = leerBDtrainingSet(data, "LIS3DH Accelerometer");
         //Preproceso(feature) los datos del archivo para un sensor 
         preProceso(sessiones, "LIS3DH Accelerometer", 128);
 
@@ -92,7 +96,7 @@ public class PreprocesoTS {
                     }
 
                     String lecturas[] = line.split("\\|");
-                    
+
                     if (lecturas[1].contentEquals(sensor)) {
                         Registro reg = new Registro();
                         reg.setSensor(lecturas[1]);
@@ -139,7 +143,7 @@ public class PreprocesoTS {
         int cantR, cantTomados;
         int i;
         List<TrainingSetFeature> featureList = new ArrayList<TrainingSetFeature>();
-        
+
         //Extraer la cantidad de muestras del sensor
         for (SessionTS session : sessiones.values()) {
 
@@ -191,8 +195,7 @@ public class PreprocesoTS {
         fft_x = Util.transform(stats_x.getValues());
         fft_y = Util.transform(stats_y.getValues());
         fft_z = Util.transform(stats_z.getValues());
-        
-        
+
         //******************* Eje X *******************//
         //mean(s) - Arithmetic mean
         System.out.print(stats_x.getMean() + ",");
@@ -227,7 +230,6 @@ public class PreprocesoTS {
         //meanFreq(s) - Frequency signal weighted average
         System.out.print(Util.meanFreq(fft_x, stats_x.getValues()) + ",");
 
-        
         //******************* Eje Y *******************//
         //mean(s) - Arithmetic mean
         System.out.print(stats_y.getMean() + ",");
@@ -261,8 +263,7 @@ public class PreprocesoTS {
         }
         //meanFreq(s) - Frequency signal weighted average
         System.out.print(Util.meanFreq(fft_y, stats_y.getValues()) + ",");
-        
-        
+
         //******************* Eje Z *******************//
         //mean(s) - Arithmetic mean
         System.out.print(stats_z.getMean() + ",");
@@ -296,8 +297,7 @@ public class PreprocesoTS {
         }
         //meanFreq(s) - Frequency signal weighted average
         System.out.print(Util.meanFreq(fft_z, stats_z.getValues()) + ",");
-        
-        
+
         //******************* Feature combinados *******************/
         //sma(s1; s2; s3) - Signal magnitude area
         System.out.print(Util.sma(stats_x.getValues(), stats_y.getValues(), stats_z.getValues()) + ",");
@@ -305,8 +305,7 @@ public class PreprocesoTS {
         System.out.print(new PearsonsCorrelation().correlation(stats_x.getValues(), stats_y.getValues()) + ",");
         System.out.print(new PearsonsCorrelation().correlation(stats_x.getValues(), stats_z.getValues()) + ",");
         System.out.print(new PearsonsCorrelation().correlation(stats_y.getValues(), stats_z.getValues()) + ",");
-        
-        
+
         //******************* Actividad *******************/
         System.out.print(activity);
         System.out.print("\n");
@@ -316,59 +315,58 @@ public class PreprocesoTS {
 
         TrainingSetFeature Feature = new TrainingSetFeature();
         DescriptiveStatistics stats_m = new DescriptiveStatistics();
-        
+
         double[] fft_m;
         double[] AR_4;
 
         muestras = Util.calcMagnitud(muestras);
-        
+
         for (int i = 0; i < muestras.length; i++) {
             stats_m.addValue(muestras[i].getM_1());
         }
 
         //********* FFT *********
         fft_m = Util.transform(stats_m.getValues());
-        
-        
+
         //******************* Eje X *******************//
         //mean(s) - Arithmetic mean
         System.out.print(stats_m.getMean() + ",");
         Feature.setMeanX((float) stats_m.getMean());
-        
+
         //std(s) - Standard deviation
         System.out.print(stats_m.getStandardDeviation() + ",");
         Feature.setStdX((float) stats_m.getStandardDeviation());
-        
+
         //mad(s) - Median absolute deviation
         //
         //max(s) - Largest values in array
         System.out.print(stats_m.getMax() + ",");
         Feature.setMaxX((float) stats_m.getMax());
-        
+
         //min(s) - Smallest value in array
         System.out.print(stats_m.getMin() + ",");
         Feature.setMinX((float) stats_m.getMin());
-        
+
         //skewness(s) - Frequency signal Skewness
         System.out.print(stats_m.getSkewness() + ",");
         Feature.setSkewnessX((float) stats_m.getSkewness());
-        
+
         //kurtosis(s) - Frequency signal Kurtosis
         System.out.print(stats_m.getKurtosis() + ",");
         Feature.setKurtosisX((float) stats_m.getKurtosis());
-        
+
         //energy(s) - Average sum of the squares
         System.out.print(stats_m.getSumsq() / stats_m.getN() + ",");
         Feature.setEnergyX((float) (stats_m.getSumsq() / stats_m.getN()));
-        
+
         //entropy(s) - Signal Entropy
         System.out.print(Util.calculateShannonEntropy(fft_m) + ",");
         Feature.setEntropyX(Util.calculateShannonEntropy(fft_m).floatValue());
-        
+
         //iqr (s) Interquartile range
         System.out.print(stats_m.getPercentile(75) - stats_m.getPercentile(25) + ",");
         Feature.setIqrX((float) (stats_m.getPercentile(75) - stats_m.getPercentile(25)));
-        
+
         try {
             //autoregression (s) -4th order Burg Autoregression coefficients
             AR_4 = AutoRegression.calculateARCoefficients(stats_m.getValues(), 4, true);
@@ -379,7 +377,7 @@ public class PreprocesoTS {
             Feature.setArX1((float) AR_4[0]);
             Feature.setArX2((float) AR_4[1]);
             Feature.setArX3((float) AR_4[2]);
-            Feature.setArX4((float) AR_4[3]);            
+            Feature.setArX4((float) AR_4[3]);
         } catch (Exception ex) {
             Logger.getLogger(PreprocesoTS.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -387,31 +385,94 @@ public class PreprocesoTS {
         System.out.print(Util.meanFreq(fft_m, stats_m.getValues()) + ",");
         Feature.setMeanFreqx((float) Util.meanFreq(fft_m, stats_m.getValues()));
 
-
         //******************* Actividad *******************/
         System.out.print(activity);
         System.out.print("\n");
         Feature.setEtiqueta(activity);
-        
+
         return Feature;
     }
-    
+
     /**
-     * 
+     *
      * @param trainingSetFeatureList
      */
-    public static void GuardarFeature(List<TrainingSetFeature> trainingSetFeatureList){
+    public static void GuardarFeature(List<TrainingSetFeature> trainingSetFeatureList) {
         EntityManager entityManager = Persistence.createEntityManagerFactory("PreprocesoTSPU").createEntityManager();
-        
+
         entityManager.getTransaction().begin();
-        
+
         Iterator<TrainingSetFeature> Iterator = trainingSetFeatureList.iterator();
         while (Iterator.hasNext()) {
             entityManager.persist(Iterator.next());
         }
-     
+
         entityManager.getTransaction().commit();
         entityManager.close();
     }
-    
+
+    public static HashMap<String, SessionTS> leerBDtrainingSet(String BD, String sensor) {
+        HashMap<String, SessionTS> SessionsTotal = new HashMap<String, SessionTS>();
+        String Consulta;
+        Connection c = null;
+        Statement stmt = null;
+        Registro reg = new Registro();
+
+        Consulta = "SELECT dat.statusId, dat.sensorName, dat.\"value\", dat.\"timestamp\", lb.\"name\"\n"
+                + "FROM sensor_data AS dat, status AS st, label AS lb\n"
+                + "WHERE dat.statusId = st.\"_id\" AND st.labelId = lb.\"_id\" ORDER BY dat.\"timestamp\"";
+        try {
+            Class.forName("org.sqlite.JDBC");
+            c = DriverManager.getConnection("jdbc:sqlite:C:\\Users\\Santirrium\\Google Drive\\Tesis 2\\Training Set\\sensor.db");
+            c.setAutoCommit(false);
+            System.out.println("Opened database successfully");
+            stmt = c.createStatement();
+            ResultSet rs = stmt.executeQuery(Consulta);
+
+            while (rs.next()) {
+                //  statusId : result[0]
+                //  sensorName : result[1]
+                //  value : result[2]
+                //  timestamp : result[3]
+                //  name(activity) : result[4]
+                reg = new Registro();
+                reg.setSensor(rs.getString("sensorName"));
+                reg.setTiempo(rs.getTimestamp("timestamp"));
+
+                String[] values = (rs.getString("value")).split("\\,");
+
+                if (values.length == 3) {
+                    reg.setValor_x(Double.parseDouble(values[0].substring(1)));
+                    reg.setValor_y(Double.parseDouble(values[1]));
+                    reg.setValor_z(Double.parseDouble(values[2].substring(0, values[2].length() - 1)));
+                } else if (values.length == 5) {
+                    reg.setValor_x(Double.parseDouble(values[0].substring(1)));
+                    reg.setValor_y(Double.parseDouble(values[1]));
+                    reg.setValor_z(Double.parseDouble(values[2]));
+                    reg.setM_1(Double.parseDouble(values[3]));
+                    reg.setM_2(Double.parseDouble(values[4].substring(0, values[4].length() - 1)));
+                }
+
+                if (SessionsTotal.containsKey(rs.getString("statusId"))) {
+                    SessionTS s = SessionsTotal.get(rs.getString("statusId"));
+                    s.addRegistro(reg);
+                    SessionsTotal.replace(rs.getString("statusId"), s);
+                } else {
+                    SessionTS s = new SessionTS();
+                    s.setActividad(rs.getString("name"));
+                    s.addRegistro(reg);
+                    SessionsTotal.put(rs.getString("statusId"), s);
+                }
+            }
+            rs.close();
+            stmt.close();
+            c.close();
+
+        } catch (ClassNotFoundException | SQLException | NumberFormatException e) {
+            System.err.println("Okapu:" + e.getClass().getName() + ": " + e.getMessage());
+            System.exit(0);
+        }
+        System.out.println("Operation done successfully");
+        return SessionsTotal;
+    }
 }
