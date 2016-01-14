@@ -9,6 +9,7 @@ import com.fpuna.preproceso.entities.TrainingSetFeature;
 import com.fpuna.preproceso.util.AutoRegression;
 import com.fpuna.preproceso.util.Util;
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
@@ -37,12 +38,15 @@ import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
  */
 public class PreprocesoTS {
 
+    private static final String path = "src\\com\\fpuna\\preproceso\\data\\";
+
     /**
      * @param args the command line arguments
      */
     public static void main(String[] args) {
 
-        String data = "C:\\Users\\Santirrium\\Documents\\PreprocesoTS\\src\\com\\fpuna\\preproceso\\data\\data4";
+        String data = path + "data4";
+        String db = path + "sensor.db";
         HashMap<String, SessionTS> sessiones = new HashMap<String, SessionTS>();
 
         //System.out.println("***** Feature *****");
@@ -52,10 +56,10 @@ public class PreprocesoTS {
         //System.out.print("sma_xyz, correlation_xy, correlation_zy, correlation_yz, ");
         //System.out.print("activity");
         //System.out.print("\n");
-        
         //Leo el archivo
         //sessiones = leerArchivo(data, "LIS3DH Accelerometer");
-        sessiones = leerBDtrainingSet(data, "LIS3DH Accelerometer");
+        sessiones = leerArchivos(path, "LIS3DH Accelerometer");
+        //sessiones = leerBDtrainingSet(db, "LIS3DH Accelerometer");
         //Preproceso(feature) los datos del archivo para un sensor 
         preProceso(sessiones, "LIS3DH Accelerometer", 128);
 
@@ -125,6 +129,87 @@ public class PreprocesoTS {
                 System.err.println("Okapu");
                 Logger.getLogger(PreprocesoTS.class.getName()).log(Level.SEVERE, null, ex);
             }
+
+        }
+
+        return SessionsTotal;
+    }
+
+    /**
+     * Metodo estatico que lee el archivo y lo carga en una estructura de hash
+     *
+     * @param Archivo path del archivo
+     * @return Hash con las sessiones leida del archivo de TrainigSet
+     */
+    public static HashMap<String, SessionTS> leerArchivos(String Archivo, String sensor) {
+
+        HashMap<String, SessionTS> SessionsTotal = new HashMap<String, SessionTS>();
+        HashMap<String, String> actividades = new HashMap<String, String>();
+
+        String sDirectorio = path;
+        File dirList = new File(sDirectorio);
+
+        if (dirList.exists()) { // Directorio existe 
+            File[] ficheros = dirList.listFiles();
+            for (int x = 0; x < ficheros.length; x++) {
+                Path file = Paths.get(path + ficheros[x].getName());
+
+                if (Files.exists(file) && Files.isReadable(file)) {
+
+                    try {
+                        BufferedReader reader = Files.newBufferedReader(file, Charset.defaultCharset());
+
+                        String line;
+                        int cabecera = 0;
+
+                        while ((line = reader.readLine()) != null) {
+                            if (line.contentEquals("statusId | label")) {
+
+                                //Leo todos las actividades  
+                                while ((line = reader.readLine()) != null && !line.contentEquals("statusId|sensorName|value|timestamp")) {
+                                    String part[] = line.split("\\|");
+                                    actividades.put(part[0], part[1]);
+                                    SessionTS s = new SessionTS();
+                                    s.setActividad(part[1]);
+                                    SessionsTotal.put(part[0], s);
+                                }
+                                line = reader.readLine();
+                            }
+
+                            String lecturas[] = line.split("\\|");
+
+                            if (lecturas[1].contentEquals(sensor)) {
+                                Registro reg = new Registro();
+                                reg.setSensor(lecturas[1]);
+                                String[] values = lecturas[2].split("\\,");
+
+                                if (values.length == 3) {
+                                    reg.setValor_x(Double.parseDouble(values[0].substring(1)));
+                                    reg.setValor_y(Double.parseDouble(values[1]));
+                                    reg.setValor_z(Double.parseDouble(values[2].substring(0, values[2].length() - 1)));
+                                } else if (values.length == 5) {
+                                    reg.setValor_x(Double.parseDouble(values[0].substring(1)));
+                                    reg.setValor_y(Double.parseDouble(values[1]));
+                                    reg.setValor_z(Double.parseDouble(values[2]));
+                                    reg.setM_1(Double.parseDouble(values[3]));
+                                    reg.setM_2(Double.parseDouble(values[4].substring(0, values[4].length() - 1)));
+                                }
+
+                                reg.setTiempo(new Timestamp(Long.parseLong(lecturas[3])));
+
+                                SessionTS s = SessionsTotal.get(lecturas[0]);
+                                s.addRegistro(reg);
+                                SessionsTotal.replace(lecturas[0], s);
+                            }
+                        }
+                    } catch (IOException ex) {
+                        System.err.println("Okapu");
+                        Logger.getLogger(PreprocesoTS.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+
+                }
+            }
+        } else { //Directorio no existe 
 
         }
 
@@ -423,18 +508,13 @@ public class PreprocesoTS {
                 + "WHERE dat.statusId = st.\"_id\" AND st.labelId = lb.\"_id\" ORDER BY dat.\"timestamp\"";
         try {
             Class.forName("org.sqlite.JDBC");
-            c = DriverManager.getConnection("jdbc:sqlite:C:\\Users\\Santirrium\\Google Drive\\Tesis 2\\Training Set\\sensor.db");
+            c = DriverManager.getConnection("jdbc:sqlite:" + path + "sensor.db");
             c.setAutoCommit(false);
             System.out.println("Opened database successfully");
             stmt = c.createStatement();
             ResultSet rs = stmt.executeQuery(Consulta);
 
             while (rs.next()) {
-                //  statusId : result[0]
-                //  sensorName : result[1]
-                //  value : result[2]
-                //  timestamp : result[3]
-                //  name(activity) : result[4]
                 reg = new Registro();
                 reg.setSensor(rs.getString("sensorName"));
                 reg.setTiempo(rs.getTimestamp("timestamp"));

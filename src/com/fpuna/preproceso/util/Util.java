@@ -110,9 +110,9 @@ public class Util {
             mFiltradas[i].setValor_z(muestras[i].getValor_z() / m);
 
             for (int j = 1; j <= m-1; j++) {
-                mFiltradas[i].setValor_x(muestras[i].getValor_x() + muestras[i + j].getValor_x() / m);
-                mFiltradas[i].setValor_y(muestras[i].getValor_y() + muestras[i + j].getValor_y() / m);
-                mFiltradas[i].setValor_z(muestras[i].getValor_z() + muestras[i + j].getValor_z() / m);
+                mFiltradas[i].setValor_x(mFiltradas[i].getValor_x() + muestras[i + j].getValor_x() / m);
+                mFiltradas[i].setValor_y(mFiltradas[i].getValor_y() + muestras[i + j].getValor_y() / m);
+                mFiltradas[i].setValor_z(mFiltradas[i].getValor_z() + muestras[i + j].getValor_z() / m);
             }
 
         }

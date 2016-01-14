@@ -41,7 +41,6 @@ public class ProcesoWeka {
                         "  \"TrainingSetFeature\".ar_x_2, \"TrainingSetFeature\".ar_x_3, \"TrainingSetFeature\".ar_x_4, \"TrainingSetFeature\".\"meanFreq_x\", \"TrainingSetFeature\".\"Etiqueta\" FROM \"TrainingSetFeature\"");
  
         Instances dataTrain = query.retrieveInstances();
-        //System.out.println(data);
          
         crearArbolDecision(dataTrain, path + "tree.txt");
         

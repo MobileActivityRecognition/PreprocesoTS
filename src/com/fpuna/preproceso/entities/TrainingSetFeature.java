@@ -47,7 +47,7 @@ public class TrainingSetFeature implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Basic(optional = false)
-    @Column(name = "\"ID_TS\"")
+    @Column(name = "id_ts")
     private Integer idTs;
     @Basic(optional = false)
     @Column(name = "\"Etiqueta\"")
