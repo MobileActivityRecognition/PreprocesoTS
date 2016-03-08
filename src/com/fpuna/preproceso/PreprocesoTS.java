@@ -45,8 +45,10 @@ public class PreprocesoTS {
      */
     public static void main(String[] args) {
 
-        String data = path + "data4";
+        String data = path + "data6";
         String db = path + "sensor.db";
+        String sensorName = "Invensense Accelerometer";
+        //String sensorName = "LIS3DH Accelerometer";
         HashMap<String, SessionTS> sessiones = new HashMap<String, SessionTS>();
 
         //System.out.println("***** Feature *****");
@@ -57,11 +59,11 @@ public class PreprocesoTS {
         //System.out.print("activity");
         //System.out.print("\n");
         //Leo el archivo
-        //sessiones = leerArchivo(data, "LIS3DH Accelerometer");
-        sessiones = leerArchivos(path, "LIS3DH Accelerometer");
+        sessiones = leerArchivo(data, sensorName);
+        //sessiones = leerArchivos(path, "LIS3DH Accelerometer");
         //sessiones = leerBDtrainingSet(db, "LIS3DH Accelerometer");
         //Preproceso(feature) los datos del archivo para un sensor 
-        preProceso(sessiones, "LIS3DH Accelerometer", 128);
+        preProceso(sessiones, sensorName, 128);
 
     }
 
