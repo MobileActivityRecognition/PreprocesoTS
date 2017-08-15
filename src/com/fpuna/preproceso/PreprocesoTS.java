@@ -8,6 +8,7 @@ package com.fpuna.preproceso;
 import com.fpuna.preproceso.entities.TrainingSetFeature;
 import com.fpuna.preproceso.util.AutoRegression;
 import com.fpuna.preproceso.util.Util;
+import com.fpuna.preproceso.util.FFTMixedRadix;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -38,16 +39,32 @@ import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
  */
 public class PreprocesoTS {
 
-    private static final String path = "src\\com\\fpuna\\preproceso\\data\\";
+    private static final String path = "src\\com\\fpuna\\preproceso\\data\\initialTS\\";
 
     /**
      * @param args the command line arguments
      */
     public static void main(String[] args) {
 
-        String data = path + "data6";
-        String db = path + "sensor.db";
-        String sensorName = "Invensense Accelerometer";
+        //String data = path + "20170510_AlbertoG_Nexus5X_W_R";           //BMI160 accelerometer
+        //String data = path + "20170510_SimonG_MotoG_XT1540_W_R";      //3-axis Accelerometer
+        //String data = path + "20170610_AlbertoG_Nexus5x_W_R_B";       //BMI160 accelerometer
+        //String data = path + "20170610_SebasF_LGG2_D625_W_R_B";       //BOSCH BMC150 Acceleration Sensor
+        //String data = path + "20170622_log_guido_acosta_samsung_S6";  //MPU6500 Acceleration Sensor
+        //String data = path + "20170624_AlbertoG_Nexus5X_W_S_C";       //BMI160 accelerometer
+        //String data = path + "20170624_BrendaV_HuaweiM8_W_R_S";       //LSM330 3-axis Accelerometer
+        //String data = path + "20170624_PaolaV_SamsungA5_W_R_S_C";     //BOSCH Accelerometer Sensor
+        //String data = path + "20170624-2_Marisa_Dominguez_S6edge";    //MPU6500 Acceleration Sensor
+        //String data = path + "20170624-2_SantiagoYegros_Mate9";       //accelerometer-lsm6dsm
+        //String data = path + "20170624-2_SantiagoYegros_Mate9_2";     //accelerometer-lsm6dsm
+        //String data = path + "20170624-2_SantiagoYegros_Mate9_3";     //accelerometer-lsm6dsm
+        //String data = path + "20170624-2_SantiagoYegros_Mate9_4";     //accelerometer-lsm6dsm
+        //String data = path + "20170627_Guido_Acosta_S6_correr";       //MPU6500 Acceleration Sensor
+        //String data = path + "20170809_AlbertoG_Nexus5X_T";           //BMI160 accelerometer
+        String data = path + "20170809_SantiagoYegros_Mate9_tilting"; //accelerometer-lsm6dsm
+        
+        //String db = path + "sensor.db";
+        String sensorName = "accelerometer-lsm6dsm";
         //String sensorName = "LIS3DH Accelerometer";
         HashMap<String, SessionTS> sessiones = new HashMap<String, SessionTS>();
 
@@ -63,7 +80,7 @@ public class PreprocesoTS {
         //sessiones = leerArchivos(path, "LIS3DH Accelerometer");
         //sessiones = leerBDtrainingSet(db, "LIS3DH Accelerometer");
         //Preproceso(feature) los datos del archivo para un sensor 
-        preProceso(sessiones, sensorName, 128);
+        preProceso(sessiones, sensorName, (float) 2.56);
 
     }
 
@@ -224,11 +241,13 @@ public class PreprocesoTS {
      * @param sensor nombre del sensor a tener en cuenta
      * @param CantMuestras cantidad de muestras a tomar.
      */
-    public static void preProceso(HashMap<String, SessionTS> sessiones, String sensor, int cantMuestras) {
+    public static void preProceso(HashMap<String, SessionTS> sessiones, String sensor, float ventanaTiempo) {
 
-        Registro muestras[] = new Registro[cantMuestras];
+        // Anteriormente  ventanaTiempo = cantMuestras 
+        List<Registro> muestras = new ArrayList <Registro>();
         int cantR, cantTomados;
         int i;
+        long TimeInicio, TimeFin;
         List<TrainingSetFeature> featureList = new ArrayList<TrainingSetFeature>();
 
         //Extraer la cantidad de muestras del sensor
@@ -237,18 +256,24 @@ public class PreprocesoTS {
             Registro registros[] = Util.maf(session.getRegistros(), 5);
             cantTomados = 0;
             i = 0;
+            TimeInicio = registros[0].getTiempo().getTime(); //Extraemos el primer timestamp para calcular luego las ventanas de tiempo
             System.out.println("*-*-*-*-*-*-*-* " + session.getActividad() + " *-*-*-*-*-*-*-*");
 
             while (i < registros.length) {
 
                 if (registros[i].getSensor().contentEquals(sensor)) {
-                    muestras[cantTomados] = registros[i];
+                    muestras.add(registros[i]); //Agregamos un registro
+                    TimeFin = registros[i].getTiempo().getTime();
                     cantTomados++;
+                    //System.out.println("Tomamos: " + cantTomados + " muestras");
 
-                    if (cantTomados == cantMuestras) {
+
+                    if (ventanaTiempo <= ((float)(TimeFin - TimeInicio)/1000.0) ) {
                         //calculoFeatures(muestras, session.getActividad());
                         featureList.add(calculoFeaturesMagnitud(muestras, session.getActividad()));
+                        TimeInicio = registros[i].getTiempo().getTime();
                         cantTomados = 0;
+                        muestras.clear();
                     }
                 }
                 i++;
@@ -398,7 +423,7 @@ public class PreprocesoTS {
         System.out.print("\n");
     }
 
-    private static TrainingSetFeature calculoFeaturesMagnitud(Registro[] muestras, String activity) {
+    private static TrainingSetFeature calculoFeaturesMagnitud(List<Registro> muestras, String activity) {
 
         TrainingSetFeature Feature = new TrainingSetFeature();
         DescriptiveStatistics stats_m = new DescriptiveStatistics();
@@ -408,14 +433,15 @@ public class PreprocesoTS {
 
         muestras = Util.calcMagnitud(muestras);
 
-        for (int i = 0; i < muestras.length; i++) {
-            stats_m.addValue(muestras[i].getM_1());
+        for (int i = 0; i < muestras.size(); i++) {
+            stats_m.addValue(muestras.get(i).getM_1());
         }
 
         //********* FFT *********
-        fft_m = Util.transform(stats_m.getValues());
+        //fft_m = Util.transform(stats_m.getValues());
+        fft_m = FFTMixedRadix.fftPowerSpectrum(stats_m.getValues());
 
-        //******************* Eje X *******************//
+        //******************* Calculos Magnitud *******************//
         //mean(s) - Arithmetic mean
         System.out.print(stats_m.getMean() + ",");
         Feature.setMeanX((float) stats_m.getMean());

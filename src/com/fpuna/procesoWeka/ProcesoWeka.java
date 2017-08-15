@@ -69,6 +69,14 @@ public class ProcesoWeka {
         
         //Mostramos las estadisticas del arbol
         System.out.println(eval.toSummaryString());
+        System.out.println(eval.toMatrixString("Matriz de Confusion"));
+        System.out.println(eval.confusionMatrix().toString());
+        System.out.println("--");
+        System.out.println(cls.toSummaryString());
+        System.out.println(eval.toClassDetailsString());
+        System.out.println(eval.toClassDetailsString());
+        System.out.println(eval.toCumulativeMarginDistributionString());
+        System.out.println(eval.toSummaryString(true));
         
         //Graficamos el arbol
         final javax.swing.JFrame jf = new javax.swing.JFrame("Weka Classifier Tree Visualizer: J48");

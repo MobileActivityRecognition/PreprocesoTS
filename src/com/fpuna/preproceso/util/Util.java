@@ -48,7 +48,8 @@ public class Util {
     }
 
     public static double[] transform(double[] input) {
-        double[] tempConversion = new double[input.length];
+        //double[] tempConversion = new double[input.length];
+        double[] tempConversion = new double[2048];
 
         FastFourierTransformer transformer = new FastFourierTransformer(DftNormalization.STANDARD);
         try {
@@ -119,10 +120,11 @@ public class Util {
         return mFiltradas;
     }
 
-    public static Registro[] calcMagnitud(Registro[] muestras) {
+    public static List<Registro> calcMagnitud(List<Registro> muestras) {
         
-        for (int i = 0; i < muestras.length; i++) {
-            muestras[i].setM_1(Math.sqrt(Math.pow(muestras[i].getValor_x(), 2) + Math.pow(muestras[i].getValor_y(), 2) + Math.pow(muestras[i].getValor_z(), 2)));
+        for (int i = 0; i < muestras.size(); i++) {
+            
+            muestras.get(i).setM_1(Math.sqrt(Math.pow(muestras.get(i).getValor_x(), 2) + Math.pow(muestras.get(i).getValor_y(), 2) + Math.pow(muestras.get(i).getValor_z(), 2)));
         }
         
         return muestras;
